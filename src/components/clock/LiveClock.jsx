@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react'
+import { timeTrackingService } from '../../services/timeTrackingService'
 
 const LiveClock = () => {
   const [currentTime, setCurrentTime] = useState(new Date())
@@ -11,27 +12,39 @@ const LiveClock = () => {
     return () => clearInterval(timer)
   }, [])
 
-  const formatTime = (date) => {
-    return date.toLocaleTimeString('en-US', {
-      hour: '2-digit',
+  // Format time in clean 24-hour format with seconds (HH:mm:ss)
+  const formatCleanTime = (dateString) => {
+    const date = new Date(dateString)
+    return date.toLocaleTimeString('sv-SE', { 
+      hour: '2-digit', 
       minute: '2-digit',
       second: '2-digit',
-      hour12: true
+      hour12: false 
     })
   }
 
+  // Format date in human-readable format
+  const formatHumanDate = (dateString) => {
+    const date = new Date(dateString)
+    const options = { 
+      weekday: 'long', 
+      month: 'long', 
+      day: 'numeric', 
+      year: 'numeric' 
+    }
+    return date.toLocaleDateString('en-US', options)
+  }
+
   return (
-    <div className="text-center mb-8">
-      <div className="text-5xl font-bold text-blue-600 mb-2">
-        {formatTime(currentTime)}
+    <div className="text-center">
+      {/* Date - smaller, muted, above time */}
+      <div className="text-blue-100 text-sm font-light mb-2">
+        {formatHumanDate(currentTime.toISOString())}
       </div>
-      <div className="text-gray-600">
-        {currentTime.toLocaleDateString('en-US', {
-          weekday: 'long',
-          year: 'numeric',
-          month: 'long',
-          day: 'numeric'
-        })}
+      
+      {/* Time - main focus, large but elegant */}
+      <div className="text-4xl font-light text-white tracking-wide">
+        {formatCleanTime(currentTime.toISOString())}
       </div>
     </div>
   )

@@ -6,6 +6,17 @@ import PrintButton from '../components/admin/PrintButton'
 
 const AdminDashboard = () => {
   const [filters, setFilters] = useState({})
+  const [refreshKey, setRefreshKey] = useState(0)
+
+  const handleAdjustment = () => {
+    setRefreshKey(prev => prev + 1)
+  }
+
+  const handleRealTimeUpdate = (update) => {
+    console.log('Admin dashboard received real-time update:', update)
+    // Force refresh when real-time updates occur
+    handleAdjustment()
+  }
 
   console.log('AdminDashboard component rendering');
 
@@ -17,11 +28,15 @@ const AdminDashboard = () => {
           <PrintButton />
         </div>
         
-        <StatsCards />
+        <StatsCards filters={filters} />
         
         <div className="bg-white rounded-lg shadow-lg p-6 mt-6">
           <FiltersBar onFiltersChange={setFilters} />
-          <RecordsTable filters={filters} />
+          <RecordsTable 
+            filters={filters} 
+            refreshKey={refreshKey}
+            onAdjustment={handleAdjustment}
+          />
         </div>
       </div>
     </div>

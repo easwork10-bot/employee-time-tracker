@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react'
-import { supabase } from '../../lib/supabaseClient'
+import { timeTrackingService } from '../../services/timeTrackingService'
 
 const EmployeeSelector = ({ selectedEmployeeId, onEmployeeSelect }) => {
   const [employees, setEmployees] = useState([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
 
   useEffect(() => {
     fetchEmployees()
@@ -11,44 +12,49 @@ const EmployeeSelector = ({ selectedEmployeeId, onEmployeeSelect }) => {
 
   const fetchEmployees = async () => {
     try {
-      const { data, error } = await supabase
-        .from('employees')
-        .select('*')
-        .eq('is_active', true)
-        .order('full_name')
-
-      if (error) throw error
-      setEmployees(data)
+      const result = await timeTrackingService.getActiveEmployees()
+      
+      if (!result.success) {
+        throw new Error(result.error)
+      }
+      
+      setEmployees(result.data)
     } catch (error) {
       console.error('Error fetching employees:', error)
+      setError(error.message)
     } finally {
       setLoading(false)
     }
   }
 
-  const handleEmployeeChange = (e) => {
-    const employeeId = e.target.value
-    onEmployeeSelect(employeeId)
-  }
-
   if (loading) {
     return (
       <div className="animate-pulse">
-        <div className="h-10 bg-gray-200 rounded"></div>
+        <label className="block text-sm font-medium text-gray-700 mb-2">
+          Select Employee
+        </label>
+        <div className="h-12 bg-gray-200 rounded-lg"></div>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+        <div className="text-red-700 text-sm">Error loading employees: {error}</div>
       </div>
     )
   }
 
   return (
     <div>
-      <label htmlFor="employee-select" className="block text-sm font-medium text-gray-700 mb-2">
+      <label className="block text-sm font-medium text-gray-700 mb-2">
         Select Employee
       </label>
       <select
-        id="employee-select"
         value={selectedEmployeeId}
-        onChange={handleEmployeeChange}
-        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+        onChange={(e) => onEmployeeSelect(e.target.value)}
+        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white text-gray-900 shadow-sm"
       >
         <option value="">Choose an employee...</option>
         {employees.map((employee) => (

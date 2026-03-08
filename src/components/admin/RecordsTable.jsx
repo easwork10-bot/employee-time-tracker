@@ -1,56 +1,37 @@
 import React, { useState, useEffect } from 'react'
-import { supabase } from '../../lib/supabaseClient'
+import { timeTrackingService } from '../../services/timeTrackingService'
+import { useAdminDashboardUpdates } from '../../hooks/useRealtimeUpdates'
 
-const RecordsTable = ({ filters }) => {
+const RecordsTable = ({ filters, refreshKey, onAdjustment }) => {
   const [shifts, setShifts] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
 
-  useEffect(() => {
-    fetchShifts()
-  }, [filters])
+  // Format date and time in the requested style
+  const formatDateTime = (dateString) => {
+    if (!dateString) return '--'
+    const date = new Date(dateString)
+    return date.toLocaleString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true
+    })
+  }
 
   const fetchShifts = async () => {
     setLoading(true)
     setError(null)
     
     try {
-      let query = supabase
-        .from('shifts')
-        .select(`
-          *,
-          employees (
-            full_name,
-            employee_code
-          )
-        `)
-        .order('clock_in_at', { ascending: false })
-
-      // Apply filters
-      if (filters?.employee) {
-        query = query.eq('employee_id', filters.employee)
+      const result = await timeTrackingService.getShifts(filters)
+      
+      if (!result.success) {
+        throw new Error(result.error)
       }
 
-      if (filters?.dateFrom) {
-        query = query.gte('clock_in_at', new Date(filters.dateFrom).toISOString())
-      }
-
-      if (filters?.dateTo) {
-        const endDate = new Date(filters.dateTo)
-        endDate.setHours(23, 59, 59, 999)
-        query = query.lte('clock_in_at', endDate.toISOString())
-      }
-
-      if (filters?.status === 'active') {
-        query = query.is('clock_out_at', null)
-      } else if (filters?.status === 'completed') {
-        query = query.not('clock_out_at', 'is', null)
-      }
-
-      const { data, error } = await query
-
-      if (error) throw error
-      setShifts(data || [])
+      setShifts(result.data)
     } catch (error) {
       console.error('Error fetching shifts:', error)
       setError(error.message)
@@ -59,35 +40,81 @@ const RecordsTable = ({ filters }) => {
     }
   }
 
-  const formatDateTime = (dateString) => {
-    if (!dateString) return 'N/A'
-    return new Date(dateString).toLocaleString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: true
-    })
-  }
+  useEffect(() => {
+    fetchShifts()
+  }, [filters, refreshKey])
 
-  const calculateHours = (clockIn, clockOut) => {
-    if (!clockIn) return 'N/A'
+  // Real-time updates for records table
+  useAdminDashboardUpdates((update) => {
+    console.log('📋 RecordsTable real-time update:', update)
+    console.log('📋 Update type:', update.type)
+    console.log('📋 Update shift data:', update.shift)
     
-    const inTime = new Date(clockIn)
-    const outTime = clockOut ? new Date(clockOut) : new Date()
+    // Handle different types of updates with specific logic
+    switch (update.type) {
+      case 'EMPLOYEE_CLOCKED_IN':
+        console.log('📋 Handling EMPLOYEE_CLOCKED_IN')
+        // For new shifts, refetch to get employee data
+        fetchShifts()
+        break
+        
+      case 'EMPLOYEE_CLOCKED_OUT':
+        console.log('📋 Handling EMPLOYEE_CLOCKED_OUT')
+        // For clock outs, refetch to get updated duration
+        fetchShifts()
+        break
+        
+      case 'SHIFT_UPDATED':
+        console.log('📋 Handling SHIFT_UPDATED')
+        // For any shift updates, refetch to ensure consistency
+        fetchShifts()
+        break
+        
+      case 'SHIFT_DELETED':
+        console.log('📋 Handling SHIFT_DELETED')
+        // For deleted shifts, refetch to remove from list
+        fetchShifts()
+        break
+        
+      default:
+        console.log('📋 Unknown update type, refetching as fallback')
+        fetchShifts()
+    }
     
-    const hours = Math.floor((outTime - inTime) / (1000 * 60 * 60))
-    const minutes = Math.floor(((outTime - inTime) % (1000 * 60 * 60)) / (1000 * 60))
-    
-    return `${hours}h ${minutes}m`
+    // Notify parent component of adjustments
+    if (onAdjustment) {
+      onAdjustment()
+    }
+  })
+
+  const getStatusBadge = (shift) => {
+    if (!shift.clock_out_at) {
+      return (
+        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+          Active
+        </span>
+      )
+    }
+    return (
+      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+        Completed
+      </span>
+    )
   }
 
   if (loading) {
     return (
-      <div className="animate-pulse">
-        <div className="h-8 bg-gray-200 rounded mb-4"></div>
+      <div className="space-y-3">
         {[1, 2, 3, 4, 5].map((i) => (
-          <div key={i} className="h-12 bg-gray-200 rounded mb-2"></div>
+          <div key={i} className="bg-white rounded-lg p-4 animate-pulse">
+            <div className="flex space-x-4">
+              <div className="flex-1 space-y-2">
+                <div className="h-4 bg-gray-200 rounded"></div>
+                <div className="h-3 bg-gray-200 rounded w-3/4"></div>
+              </div>
+              <div className="h-8 bg-gray-200 rounded w-20"></div>
+            </div>
+          </div>
         ))}
       </div>
     )
@@ -95,79 +122,87 @@ const RecordsTable = ({ filters }) => {
 
   if (error) {
     return (
-      <div className="bg-red-50 border border-red-200 rounded-md p-4">
+      <div className="bg-red-50 border border-red-200 rounded-lg p-6">
         <div className="text-red-700">Error loading records: {error}</div>
+        <button 
+          onClick={fetchShifts}
+          className="mt-2 text-sm text-red-600 hover:text-red-800 underline"
+        >
+          Retry
+        </button>
+      </div>
+    )
+  }
+
+  if (shifts.length === 0) {
+    return (
+      <div className="text-center py-8">
+        <div className="text-gray-400">
+          <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+          </svg>
+        </div>
+        <p className="mt-2 text-sm text-gray-600">No records found</p>
       </div>
     )
   }
 
   return (
-    <div>
-      <h3 className="text-lg font-semibold text-gray-800 mb-4">Time Records</h3>
-      
-      {shifts.length === 0 ? (
-        <div className="text-center py-8 text-gray-500">
-          No records found matching the current filters.
-        </div>
-      ) : (
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Employee
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Clock In
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Clock Out
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Hours
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Status
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {shifts.map((shift) => (
-                <tr key={shift.id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div>
-                      <div className="text-sm font-medium text-gray-900">
-                        {shift.employees?.full_name || 'Unknown'}
-                      </div>
-                      <div className="text-sm text-gray-500">
-                        {shift.employees?.employee_code || ''}
-                      </div>
+    <div className="overflow-hidden">
+      <div className="overflow-x-auto">
+        <table className="min-w-full divide-y divide-gray-200">
+          <thead className="bg-gray-50">
+            <tr>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Employee
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Clock In
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Clock Out
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Duration
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Status
+              </th>
+            </tr>
+          </thead>
+          <tbody className="bg-white divide-y divide-gray-200">
+            {shifts.map((shift) => (
+              <tr key={shift.id} className="hover:bg-gray-50 transition-colors">
+                <td className="px-6 py-4 whitespace-nowrap">
+                  <div>
+                    <div className="text-sm font-medium text-gray-900">
+                      {shift.employees?.full_name || 'Unknown'}
                     </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {formatDateTime(shift.clock_in_at)}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {shift.clock_out_at ? formatDateTime(shift.clock_out_at) : 'Active'}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {calculateHours(shift.clock_in_at, shift.clock_out_at)}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                      shift.clock_out_at 
-                        ? 'bg-green-100 text-green-800' 
-                        : 'bg-yellow-100 text-yellow-800'
-                    }`}>
-                      {shift.clock_out_at ? 'Completed' : 'Active'}
-                    </span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+                    <div className="text-xs text-gray-500">
+                      {shift.employees?.employee_code}
+                    </div>
+                  </div>
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                  {formatDateTime(shift.clock_in_at)}
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                  {shift.clock_out_at 
+                    ? formatDateTime(shift.clock_out_at)
+                    : '--'
+                  }
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                  {shift.duration || '--'}
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap">
+                  {getStatusBadge(shift)}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   )
 }

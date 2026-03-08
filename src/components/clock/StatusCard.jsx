@@ -1,128 +1,106 @@
-import React, { useState, useEffect } from 'react'
-import { supabase } from '../../lib/supabaseClient'
+import React from 'react'
+import { timeTrackingService } from '../../services/timeTrackingService'
 
-const StatusCard = ({ selectedEmployeeId, refreshKey }) => {
-  const [currentShift, setCurrentShift] = useState(null)
-  const [lastShift, setLastShift] = useState(null)
-  const [loading, setLoading] = useState(false)
+const StatusCard = ({ employee, currentShift, isClockedIn, isLoading }) => {
+  const { formatTime, formatDate, calculateDuration, formatDuration } = timeTrackingService.timeUtils
 
-  useEffect(() => {
-    if (selectedEmployeeId) {
-      fetchEmployeeStatus()
-    } else {
-      setCurrentShift(null)
-      setLastShift(null)
-    }
-  }, [selectedEmployeeId, refreshKey])
-
-  const fetchEmployeeStatus = async () => {
-    if (!selectedEmployeeId) return
-
-    setLoading(true)
-    
-    try {
-      // Find current open shift
-      const { data: openShifts, error: openError } = await supabase
-        .from('shifts')
-        .select('*')
-        .eq('employee_id', selectedEmployeeId)
-        .is('clock_out_at', null)
-        .order('clock_in_at', { ascending: false })
-        .limit(1)
-
-      if (openError) throw openError
-
-      if (openShifts && openShifts.length > 0) {
-        setCurrentShift(openShifts[0])
-        setLastShift(null)
-      } else {
-        // Find last completed shift
-        const { data: completedShifts, error: completedError } = await supabase
-          .from('shifts')
-          .select('*')
-          .eq('employee_id', selectedEmployeeId)
-          .not('clock_out_at', 'is', null)
-          .order('clock_in_at', { ascending: false })
-          .limit(1)
-
-        if (completedError) throw completedError
-
-        setCurrentShift(null)
-        setLastShift(completedShifts && completedShifts.length > 0 ? completedShifts[0] : null)
-      }
-    } catch (error) {
-      console.error('Error fetching employee status:', error)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const formatTime = (dateString) => {
-    if (!dateString) return 'N/A'
-    return new Date(dateString).toLocaleTimeString('en-US', {
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: true
-    })
-  }
-
-  const formatDate = (dateString) => {
-    if (!dateString) return 'N/A'
-    return new Date(dateString).toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric'
-    })
-  }
-
-  const calculateDuration = (clockIn, clockOut) => {
-    if (!clockIn) return 'N/A'
-    
-    const inTime = new Date(clockIn)
-    const outTime = clockOut ? new Date(clockOut) : new Date()
-    
-    const hours = Math.floor((outTime - inTime) / (1000 * 60 * 60))
-    const minutes = Math.floor(((outTime - inTime) % (1000 * 60 * 60)) / (1000 * 60))
-    
-    return `${hours}h ${minutes}m`
-  }
-
-  if (loading) {
+  if (isLoading) {
     return (
-      <div className="bg-gray-50 rounded-lg p-4 animate-pulse">
-        <div className="h-4 bg-gray-200 rounded mb-2"></div>
-        <div className="h-3 bg-gray-200 rounded"></div>
+      <div className="bg-gray-50 rounded-xl border border-gray-200 p-6 animate-pulse">
+        <div className="h-4 bg-gray-200 rounded mb-4"></div>
+        <div className="space-y-3">
+          <div className="h-3 bg-gray-200 rounded"></div>
+          <div className="h-3 bg-gray-200 rounded w-3/4"></div>
+        </div>
       </div>
     )
   }
 
   return (
-    <div className="bg-gray-50 rounded-lg p-4">
-      <div className="text-center">
-        <div className="text-lg font-semibold text-gray-700 mb-2">
-          Status: {currentShift ? 'Clocked In' : 'Clocked Out'}
+    <div className="bg-gray-50 rounded-xl border border-gray-200 p-6">
+      {/* Status Header */}
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="text-lg font-semibold text-gray-900">Status</h3>
+        
+        {/* Status Badge */}
+        <div className={`inline-flex items-center px-3 py-1.5 rounded-full text-sm font-medium ${
+          isClockedIn 
+            ? 'bg-green-100 text-green-800 border border-green-200' 
+            : 'bg-gray-100 text-gray-600 border border-gray-200'
+        }`}>
+          {isClockedIn ? (
+            <>
+              <svg className="w-4 h-4 mr-1.5" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+              </svg>
+              CLOCKED IN
+            </>
+          ) : (
+            <>
+              <svg className="w-4 h-4 mr-1.5" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+              </svg>
+              CLOCKED OUT
+            </>
+          )}
         </div>
-        
-        {currentShift ? (
-          <div className="text-green-600">
-            <div className="text-sm">Clocked in at: {formatTime(currentShift.clock_in_at)}</div>
-            <div className="text-xs text-gray-500 mt-1">
-              {formatDate(currentShift.clock_in_at)} • Duration: {calculateDuration(currentShift.clock_in_at)}
+      </div>
+
+      {/* Status Content */}
+      <div className="space-y-3">
+        {isClockedIn && currentShift && (
+          <>
+            <div className="flex items-center justify-between py-2">
+              <span className="text-sm text-gray-600">Clocked in at</span>
+              <span className="text-sm font-medium text-gray-900">
+                {formatTime(currentShift.clock_in_at)}
+              </span>
             </div>
-          </div>
-        ) : (
-          <div className="text-gray-500">
-            <div className="text-sm">No active shift</div>
-          </div>
+            
+            <div className="flex items-center justify-between py-2">
+              <span className="text-sm text-gray-600">Current duration</span>
+              <span className="text-sm font-medium text-green-600">
+                {currentShift?.currentDuration || formatDuration(
+                  calculateDuration(currentShift.clock_in_at).hours,
+                  calculateDuration(currentShift.clock_in_at).minutes
+                )}
+              </span>
+            </div>
+          </>
         )}
-        
-        {lastShift && !currentShift && (
-          <div className="mt-3 pt-3 border-t border-gray-200">
-            <div className="text-xs text-gray-600">Last activity:</div>
-            <div className="text-sm text-gray-700">
-              {formatTime(lastShift.clock_in_at)} - {formatTime(lastShift.clock_out_at)}
+
+        {!isClockedIn && currentShift && currentShift.clock_out_at && (
+          <>
+            <div className="flex items-center justify-between py-2">
+              <span className="text-sm text-gray-600">Last clock in</span>
+              <span className="text-sm font-medium text-gray-900">
+                {formatTime(currentShift.clock_in_at)}
+              </span>
             </div>
-            <div className="text-xs text-gray-500">
-              {formatDate(lastShift.clock_in_at)} • Total: {calculateDuration(lastShift.clock_in_at, lastShift.clock_out_at)}
+            
+            <div className="flex items-center justify-between py-2">
+              <span className="text-sm text-gray-600">Last clock out</span>
+              <span className="text-sm font-medium text-gray-900">
+                {formatTime(currentShift.clock_out_at)}
+              </span>
+            </div>
+            
+            <div className="flex items-center justify-between py-2">
+              <span className="text-sm text-gray-600">Last shift duration</span>
+              <span className="text-sm font-medium text-gray-900">
+                {currentShift?.duration || formatDuration(
+                  calculateDuration(currentShift.clock_in_at, currentShift.clock_out_at).hours,
+                  calculateDuration(currentShift.clock_in_at, currentShift.clock_out_at).minutes
+                )}
+              </span>
+            </div>
+          </>
+        )}
+
+        {!isClockedIn && !currentShift && (
+          <div className="text-center py-4">
+            <div className="text-gray-400 text-sm">
+              No previous shifts found
             </div>
           </div>
         )}
