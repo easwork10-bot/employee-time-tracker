@@ -7,17 +7,10 @@ const RecordsTable = ({ filters, refreshKey, onAdjustment }) => {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
 
-  // Format date and time in 24-hour format (Mar 8, 14:25)
+  // Format date and time in Swedish 24-hour format (Mar 8, 14:25)
   const formatDateTime = (dateString) => {
     if (!dateString) return '--'
-    const date = new Date(dateString)
-    return date.toLocaleString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: false
-    })
+    return timeTrackingService.timeUtils.formatDateTime(dateString)
   }
 
   const fetchShifts = async () => {

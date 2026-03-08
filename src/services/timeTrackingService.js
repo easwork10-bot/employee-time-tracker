@@ -25,45 +25,56 @@ const deduplicateRequest = (key, requestFn) => {
   return promise
 }
 
-// Time formatting utilities with timezone handling
+// Time formatting utilities with Swedish timezone handling
+const DISPLAY_TIMEZONE = 'Europe/Stockholm'
+const DISPLAY_LOCALE = 'sv-SE'
+
 const timeUtils = {
-  // Get user's timezone
-  getTimezone: () => {
-    return Intl.DateTimeFormat().resolvedOptions().timeZone
-  },
+  // Get user's timezone (but we use Stockholm for consistency)
+  getTimezone: () => DISPLAY_TIMEZONE,
 
   // Format time to 24-hour Swedish format (HH:mm:ss)
   formatTime: (dateString) => {
     if (!dateString) return '--:--:--'
-    const date = new Date(dateString)
-    return date.toLocaleTimeString('sv-SE', { 
+    return new Intl.DateTimeFormat(DISPLAY_LOCALE, { 
       hour: '2-digit', 
       minute: '2-digit',
       second: '2-digit',
       hour12: false,
-      timeZone: timeUtils.getTimezone()
-    })
+      timeZone: DISPLAY_TIMEZONE
+    }).format(new Date(dateString))
   },
 
   // Format time without seconds for display
   formatTimeWithoutSeconds: (dateString) => {
     if (!dateString) return '--:--'
-    const date = new Date(dateString)
-    return date.toLocaleTimeString('sv-SE', { 
+    return new Intl.DateTimeFormat(DISPLAY_LOCALE, { 
       hour: '2-digit', 
       minute: '2-digit',
       hour12: false,
-      timeZone: timeUtils.getTimezone()
-    })
+      timeZone: DISPLAY_TIMEZONE
+    }).format(new Date(dateString))
   },
 
   // Format date to Swedish format
   formatDate: (dateString) => {
     if (!dateString) return '--'
-    const date = new Date(dateString)
-    return date.toLocaleDateString('sv-SE', {
-      timeZone: timeUtils.getTimezone()
-    })
+    return new Intl.DateTimeFormat(DISPLAY_LOCALE, {
+      timeZone: DISPLAY_TIMEZONE
+    }).format(new Date(dateString))
+  },
+
+  // Format date and time in Swedish style (Mar 8, 14:25)
+  formatDateTime: (dateString) => {
+    if (!dateString) return '--'
+    return new Intl.DateTimeFormat(DISPLAY_LOCALE, {
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+      timeZone: DISPLAY_TIMEZONE
+    }).format(new Date(dateString))
   },
 
   // Calculate duration in hours and minutes
