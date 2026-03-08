@@ -7,16 +7,16 @@ const RecordsTable = ({ filters, refreshKey, onAdjustment }) => {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
 
-  // Format date and time in the requested style
+  // Format date and time in 24-hour format (Mar 8, 14:25)
   const formatDateTime = (dateString) => {
     if (!dateString) return '--'
     const date = new Date(dateString)
     return date.toLocaleString('en-US', {
       month: 'short',
       day: 'numeric',
-      hour: 'numeric',
+      hour: '2-digit',
       minute: '2-digit',
-      hour12: true
+      hour12: false
     })
   }
 
@@ -193,7 +193,10 @@ const RecordsTable = ({ filters, refreshKey, onAdjustment }) => {
                   }
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                  {shift.duration || '--'}
+                  {shift.clock_out_at 
+                    ? (shift.duration || '--')
+                    : <span className="text-gray-400 italic">In progress...</span>
+                  }
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
                   {getStatusBadge(shift)}

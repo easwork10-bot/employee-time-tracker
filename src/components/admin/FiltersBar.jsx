@@ -44,78 +44,87 @@ const FiltersBar = ({ onFiltersChange }) => {
     }))
   }
 
-  if (loading) {
-    return (
-      <div className="animate-pulse">
-        <div className="h-10 bg-gray-200 rounded mb-4"></div>
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          {[1, 2, 3, 4].map((i) => (
-            <div key={i} className="h-10 bg-gray-200 rounded"></div>
-          ))}
-        </div>
-      </div>
-    )
+  const clearFilters = () => {
+    setFilters({
+      employee: '',
+      dateFrom: '',
+      dateTo: '',
+      status: 'all'
+    })
   }
 
   return (
-    <div className="mb-6">
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div>
+    <div className="bg-gray-50 rounded-lg p-4 mb-6">
+      <div className="flex flex-wrap items-end gap-4">
+        {/* Employee Filter */}
+        <div className="flex-1 min-w-[200px]">
           <label className="block text-sm font-medium text-gray-700 mb-1">
             Employee
           </label>
           <select
             value={filters.employee}
             onChange={(e) => handleFilterChange('employee', e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            disabled={loading}
           >
             <option value="">All Employees</option>
-            {employees.map((employee) => (
-              <option key={employee.id} value={employee.id}>
-                {employee.full_name}
+            {employees.map(emp => (
+              <option key={emp.id} value={emp.id}>
+                {emp.full_name} ({emp.employee_code})
               </option>
             ))}
           </select>
         </div>
 
-        <div>
+        {/* Date From */}
+        <div className="flex-1 min-w-[150px]">
           <label className="block text-sm font-medium text-gray-700 mb-1">
-            Date From
+            From Date
           </label>
           <input
             type="date"
             value={filters.dateFrom}
             onChange={(e) => handleFilterChange('dateFrom', e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
         </div>
 
-        <div>
+        {/* Date To */}
+        <div className="flex-1 min-w-[150px]">
           <label className="block text-sm font-medium text-gray-700 mb-1">
-            Date To
+            To Date
           </label>
           <input
             type="date"
             value={filters.dateTo}
             onChange={(e) => handleFilterChange('dateTo', e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
         </div>
 
-        <div>
+        {/* Status Filter */}
+        <div className="flex-1 min-w-[150px]">
           <label className="block text-sm font-medium text-gray-700 mb-1">
             Status
           </label>
           <select
             value={filters.status}
             onChange={(e) => handleFilterChange('status', e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
             <option value="all">All Status</option>
             <option value="active">Active</option>
             <option value="completed">Completed</option>
           </select>
         </div>
+
+        {/* Clear Button */}
+        <button
+          onClick={clearFilters}
+          className="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 transition-colors text-sm font-medium"
+        >
+          Clear Filters
+        </button>
       </div>
     </div>
   )

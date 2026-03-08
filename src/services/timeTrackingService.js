@@ -492,7 +492,7 @@ export const timeTrackingService = {
         .from('shifts')
         .select(`
           *,
-          employees (
+          employees!shifts_employee_id_fkey (
             full_name,
             employee_code
           )
@@ -526,13 +526,23 @@ export const timeTrackingService = {
 
       if (error) throw error
 
-      // Process data with calculated durations
+      // Process data with calculated durations - only for completed shifts
       const processedData = (data || []).map(shift => {
-        const duration = timeUtils.calculateDuration(shift.clock_in_at, shift.clock_out_at)
-        return {
-          ...shift,
-          duration: timeUtils.formatDuration(duration.hours, duration.minutes),
-          durationMinutes: duration.totalMinutes
+        if (shift.clock_out_at) {
+          // Completed shift - calculate actual duration
+          const duration = timeUtils.calculateDuration(shift.clock_in_at, shift.clock_out_at)
+          return {
+            ...shift,
+            duration: timeUtils.formatDuration(duration.hours, duration.minutes),
+            durationMinutes: duration.totalMinutes
+          }
+        } else {
+          // Active shift - no duration yet
+          return {
+            ...shift,
+            duration: null,
+            durationMinutes: 0
+          }
         }
       })
 

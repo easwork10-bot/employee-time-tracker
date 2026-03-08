@@ -11,56 +11,63 @@ export const useRealtimeUpdates = (tableName, eventHandlers = {}) => {
     
     console.log(`🔧 Setting up real-time subscription for ${tableName}...`)
     
-    // Subscribe to database changes directly
-    const subscription = supabase
-      .channel(`${tableName}_changes`)
-      .on('postgres_changes', 
-        { 
-          event: '*', 
-          schema: 'public', 
-          table: tableName 
-        },
-        (payload) => {
-          console.log(`🔄 Real-time update received for ${tableName}:`, payload)
-          
-          if (!mountedRef.current) return
-          
-          const { eventType, new: newRecord, old: oldRecord } = payload
-          
-          // Call appropriate event handler
-          if (eventHandlers[eventType]) {
-            try {
-              eventHandlers[eventType](payload)
-            } catch (error) {
-              console.error(`Error in ${eventType} handler for ${tableName}:`, error)
+    // Subscribe to database changes directly with error handling
+    let subscription;
+    try {
+      subscription = supabase
+        .channel(`${tableName}_changes`)
+        .on('postgres_changes', 
+          { 
+            event: '*', 
+            schema: 'public', 
+            table: tableName 
+          },
+          (payload) => {
+            if (!mountedRef.current) return
+            
+            console.log(`🔄 Real-time update for ${tableName}:`, payload.eventType)
+            
+            const { eventType } = payload
+            
+            // Call appropriate event handler
+            if (eventHandlers[eventType]) {
+              try {
+                eventHandlers[eventType](payload)
+              } catch (error) {
+                console.error(`Error in ${eventType} handler:`, error)
+              }
+            }
+            
+            // Call generic change handler
+            if (eventHandlers.onChange) {
+              try {
+                eventHandlers.onChange(payload)
+              } catch (error) {
+                console.error(`Error in onChange handler:`, error)
+              }
+            }
+          }
+        )
+        .subscribe((status, err) => {
+          if (err) {
+            console.warn(`⚠️ Subscription issue for ${tableName}:`, err.message)
+            // Don't treat binding mismatch as fatal - polling will handle updates
+            if (err.message?.includes('bindings')) {
+              console.log(`📡 Realtime bindings issue - using polling fallback`)
             }
           }
           
-          // Call generic change handler
-          if (eventHandlers.onChange) {
-            try {
-              eventHandlers.onChange(payload)
-            } catch (error) {
-              console.error(`Error in onChange handler for ${tableName}:`, error)
-            }
+          if (status === 'SUBSCRIBED') {
+            console.log(`✅ Subscribed to ${tableName}`)
+          } else if (status === 'CHANNEL_ERROR') {
+            console.warn(`⚠️ Channel error for ${tableName} - polling active`)
+          } else if (status === 'TIMED_OUT') {
+            console.warn(`⏰ Timeout for ${tableName} - polling active`)
           }
-        }
-      )
-      .subscribe((status, err) => {
-        console.log(`📡 Subscription status for ${tableName}:`, status)
-        if (err) {
-          console.error(`❌ Subscription error for ${tableName}:`, err)
-        }
-        if (status === 'SUBSCRIBED') {
-          console.log(`✅ Successfully subscribed to ${tableName} changes`)
-        } else if (status === 'CHANNEL_ERROR') {
-          console.error(`❌ Subscription error for ${tableName}`)
-        } else if (status === 'TIMED_OUT') {
-          console.error(`⏰ Subscription timeout for ${tableName}`)
-        } else if (status === 'CLOSED') {
-          console.log(`🔌 Subscription closed for ${tableName}`)
-        }
-      })
+        })
+    } catch (error) {
+      console.error(`❌ Failed to create subscription for ${tableName}:`, error)
+    }
 
     subscriptionRef.current = subscription
 
