@@ -75,10 +75,25 @@ src/
 
 ## Environment Variables
 
+Create a `.env` file with:
+
+```env
+VITE_SUPABASE_URL=your_supabase_url
+VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY=your_supabase_anon_key
 ```
-NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
-NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY=your_supabase_anon_key
-```
+
+## Vercel Deployment
+
+This app is configured for Vercel deployment:
+
+1. **Automatic Deployment**: Connect your GitHub repo to Vercel
+2. **Environment Variables**: Set in Vercel dashboard:
+   - `VITE_SUPABASE_URL`
+   - `VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY`
+3. **Build Configuration**: Optimized with:
+   - Code splitting
+   - Asset optimization
+   - SPA routing support
 
 ## Scripts
 
